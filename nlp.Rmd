@@ -1,0 +1,150 @@
+---
+title: "Capstone - Milestone report"
+author: "Stavros Oikonomou"
+date: "3/6/2020"
+output: html_document
+---
+### Summary
+
+The goal of this project is just to display that you've gotten used to working with the data and that you are on track to create your prediction algorithm.
+
+This is a milestone report for peer graded assigment as part of Data Science Captone Course from Coursera in Week 2. The objective of this document is as follows,
+
+1. Demonstrate that you’ve downloaded the data and have successfully loaded it in.
+2. Create a basic report of summary statistics about the data sets.
+3. Report any interesting findings that you amassed so far.
+4. Get feedback on your plans for creating a prediction algorithm and Shiny app.
+
+This report also will be served as a base for creating the next assignment report, hence it should be as clear and concise as possible. The content of this report will be structured to 5 sections as per the objective mentioned above.
+
+
+#### Loading the libraries
+```{r,warning=FALSE,message=FALSE}
+library(ggplot2)
+library(tm)
+library(stringi)
+library(textmineR)
+library(NLP)
+```
+
+#### Downloading the dataset
+```{r}
+if (!file.exists("Coursera-SwiftKey.zip")){
+  download.file("https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip","Coursera-SwiftKey.zip",
+                method = "auto")
+}
+```
+
+Unzipping the zip file
+```{r}
+blog_file<- "final/en_US/en_US.blogs.txt"
+twit_file <- "final/en_US/en_US.twitter.txt"
+news_file <- "final/en_US/en_US.news.txt"
+
+if (!file.exists(blog_file) || !file.exists(twit_file) || !file.exists(news_file) ){
+  unzip("Coursera-SwiftKey.zip")}
+```
+
+#### Loading the text files
+We gonna work with english dataset. There are three files for blogs twitter and news
+```{r,warning=FALSE,message=FALSE}
+blogs   <- readLines(blog_file, encoding="UTF-8")
+twitter <- readLines(twit_file, encoding="UTF-8")
+news    <- readLines(news_file, encoding="UTF-8")
+```
+
+#### Creating the summary
+The basic details for the three datasets. The number of words, the number of lines, the number of characters and the size of files.
+```{r}
+summary <- data.frame('File Name ' = c("Blogs","News","Twitter"),
+                      'words_counts'= sapply(list(blogs, news, twitter), function(x) {sum(stri_count_words(x))}),
+                      'line_counts' = sapply(list(blogs, news, twitter), stri_stats_general)[1,],
+                      'Chars'= sapply(list(blogs, news, twitter), stri_stats_general)[3,],
+                      'Size'= sapply(list(blogs, news, twitter),function(x){format(object.size(x),"MB")}))
+summary
+```
+
+#### Data sample
+Because the dataset is large we gonna create a subset with 1% of the data per file
+```{r}
+set.seed(1234)
+sample_size <- 0.01
+
+data_sample <- c(sample(blogs, length(blogs) * sample_size),
+                 sample(news, length(news) * sample_size),
+                 sample(twitter, length(twitter) * sample_size))
+```
+
+#### Building the Corpus
+```{r}
+corpus <- VCorpus(VectorSource(data_sample))
+```
+
+#### Data cleaning and preprocessing
+We gonna:
+
+* Turn every letter to lowercase
+* Removing double spaces
+* Removing punctuations
+* Removing every number
+* Removing standar words we dont need
+```{r}
+corpus<-tm_map(corpus, content_transformer(tolower))
+corpus<-tm_map(corpus, stripWhitespace)
+corpus<-tm_map(corpus, removePunctuation)
+corpus<-tm_map(corpus, removeNumbers)
+corpus<-tm_map(corpus, removeWords, stopwords('english'))
+```
+
+#### Creating N-grams for our data
+We have cleaned and sampled our data. we have done some preprocessing for our data. Now we can build our basic unigram, bigram and trigram. We choose 99.99% sparsity in the range from bigger zero to smaller one, so we gonna keep 99.99% of the most frequent words.
+```{r}
+BigramTokenizer <-function(x) unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+TrigramTokenizer <- function(x) unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+
+freq_df <- function(tdm){
+  freq <- sort(rowSums(as.matrix(tdm)), decreasing=TRUE)
+  freq_df <- data.frame(word=names(freq), freq=freq)
+  return(freq_df)
+}
+
+unigram <- removeSparseTerms(TermDocumentMatrix(corpus), 0.9999)
+unigram_freq <- freq_df(unigram)
+
+bigram <- removeSparseTerms(TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer)), 0.9999)
+bigram_freq <- freq_df(bigram)
+
+trigram <- removeSparseTerms(TermDocumentMatrix(corpus, control = list(tokenize = TrigramTokenizer)), 0.9999)
+trigram_freq <- freq_df(trigram)
+```
+
+#### Plotting the most common unigrams,bigrams and trigrams
+```{r}
+ggplot(unigram_freq[1:10,], aes(reorder(word,-freq),freq, fill=word)) + geom_bar(stat="identity") +
+  labs(x="words", y="Frequency") + ggtitle("10 most common Unigrams") + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, size = 12, hjust = 1)) 
+```
+
+```{r}
+ggplot(bigram_freq[1:10,], aes(reorder(word,-freq),freq, fill=word)) + geom_bar(stat="identity") +
+  labs(x="words", y="Frequency") + ggtitle("10 most common Bigrams") + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, size = 12, hjust = 1)) 
+```
+
+```{r}
+ggplot(trigram_freq[1:10,], aes(reorder(word,-freq),freq, fill=word)) + geom_bar(stat="identity") +
+  labs(x="words", y="Frequency") + ggtitle("10 most common Trigrams") + 
+  theme(legend.position = "none", axis.text.x = element_text(angle = 45, size = 12, hjust = 1))
+```
+
+### Conclusion and Next Steps
+We just finish the initial exploratory analysis. The next will be to build a predictive model that gonna help us predict the next word using the most frequent options. he algorithm will then be deployed in a Shiny app and will suggest the most likely next word after a phrase is typed.
+
+
+
+
+
+
+
+
+
