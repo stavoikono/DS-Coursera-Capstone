@@ -14,12 +14,18 @@ suppressPackageStartupMessages({
 
 
 library(shiny)
+library(shinyWidgets)
 
 # Define UI for application that draws a histogram
 
 
 ui <- fluidPage(
         # Application title
+        setBackgroundColor(
+            color = c("#F8F8FF", "#AFEEEE"),
+            gradient = "linear",
+            direction = "bottom"
+            ),
         titlePanel("Word Prediction Model"),
         p("This is a Shiny app that takes as input a phrase (multiple words) in a text box input and outputs a prediction of the next word."),
         
